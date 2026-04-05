@@ -1,4 +1,4 @@
-package com.example.my_fitness_pal_clone.activities
+package com.example.fit_buddy.activities
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -22,8 +22,8 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.graphics.toColorInt
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.example.my_fitness_pal_clone.utils.DataManager
-import com.example.my_fitness_pal_clone.utils.setupBottomNavigation
+import com.example.fit_buddy.utils.DataManager
+import com.example.fit_buddy.utils.setupBottomNavigation
 
 class DashboardActivity : AppCompatActivity() {
 

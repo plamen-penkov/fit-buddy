@@ -1,4 +1,4 @@
-package com.example.my_fitness_pal_clone.utils
+package com.example.fit_buddy.utils
 
 import android.app.Activity
 import android.content.Context
@@ -13,10 +13,10 @@ import android.widget.RelativeLayout
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.graphics.toColorInt
-import com.example.my_fitness_pal_clone.activities.DashboardActivity
-import com.example.my_fitness_pal_clone.activities.DiaryActivity
-import com.example.my_fitness_pal_clone.activities.MoreActivity
-import com.example.my_fitness_pal_clone.activities.StatsActivity
+import com.example.fit_buddy.activities.DashboardActivity
+import com.example.fit_buddy.activities.DiaryActivity
+import com.example.fit_buddy.activities.MoreActivity
+import com.example.fit_buddy.activities.StatsActivity
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
 fun setupBottomNavigation(context: Context, rootLayout: ViewGroup, currentId: Int) {

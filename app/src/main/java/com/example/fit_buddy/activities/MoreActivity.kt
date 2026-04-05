@@ -1,4 +1,4 @@
-package com.example.my_fitness_pal_clone.activities
+package com.example.fit_buddy.activities
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -18,7 +18,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
-import com.example.my_fitness_pal_clone.utils.setupBottomNavigation
+import com.example.fit_buddy.utils.setupBottomNavigation
 
 class MoreActivity : AppCompatActivity() {
 

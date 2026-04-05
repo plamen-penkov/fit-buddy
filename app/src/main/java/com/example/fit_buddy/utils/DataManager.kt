@@ -1,4 +1,4 @@
-package com.example.my_fitness_pal_clone.utils
+package com.example.fit_buddy.utils
 
 import android.content.Context
 import android.util.Log

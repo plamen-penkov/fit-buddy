@@ -1,4 +1,4 @@
-package com.example.my_fitness_pal_clone.activities
+package com.example.fit_buddy.activities
 
 import android.annotation.SuppressLint
 import android.graphics.Color
@@ -25,9 +25,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.toColorInt
 import androidx.core.view.GestureDetectorCompat
-import com.example.my_fitness_pal_clone.utils.DataManager
-import com.example.my_fitness_pal_clone.utils.FoodItem
-import com.example.my_fitness_pal_clone.utils.setupBottomNavigation
+import com.example.fit_buddy.utils.DataManager
+import com.example.fit_buddy.utils.FoodItem
+import com.example.fit_buddy.utils.setupBottomNavigation
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date

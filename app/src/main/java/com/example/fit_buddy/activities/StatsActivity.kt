@@ -1,4 +1,4 @@
-package com.example.my_fitness_pal_clone.activities
+package com.example.fit_buddy.activities
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -19,8 +19,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.toColorInt
-import com.example.my_fitness_pal_clone.utils.DataManager
-import com.example.my_fitness_pal_clone.utils.setupBottomNavigation
+import com.example.fit_buddy.utils.DataManager
+import com.example.fit_buddy.utils.setupBottomNavigation
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.my_fitness_pal_clone"
+    namespace = "com.example.fit_buddy"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1

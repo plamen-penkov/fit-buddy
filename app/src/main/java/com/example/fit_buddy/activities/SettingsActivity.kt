@@ -1,4 +1,4 @@
-package com.example.my_fitness_pal_clone.activities
+package com.example.fit_buddy.activities
 
 import android.annotation.SuppressLint
 import android.graphics.Color
@@ -19,7 +19,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatButton
 import androidx.core.graphics.toColorInt
-import com.example.my_fitness_pal_clone.utils.DataManager
+import com.example.fit_buddy.utils.DataManager
 
 class SettingsActivity : AppCompatActivity() {
 

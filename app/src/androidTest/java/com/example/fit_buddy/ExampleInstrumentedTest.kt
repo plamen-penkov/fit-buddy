@@ -1,4 +1,4 @@
-package com.example.my_fitness_pal_clone
+package com.example.fit_buddy
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
