@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "my_fitness_pal_clone"
+rootProject.name = "fit_buddy"
 include(":app")

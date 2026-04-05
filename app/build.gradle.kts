@@ -12,7 +12,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.my_fitness_pal_clone"
+        applicationId = "com.example.fit_buddy"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
