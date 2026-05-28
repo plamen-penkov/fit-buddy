@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App color palette — Dark mode overrides -->
+    <color name="app_primary">#AAC7FF</color>
+    <color name="app_on_primary">#002F65</color>
+    <color name="app_background">#111318</color>
+    <color name="app_surface">#1B1B21</color>
+    <color name="app_on_surface">#E2E2E9</color>
+    <color name="app_on_surface_variant">#C4C6D0</color>
+    <color name="app_surface_variant">#44474F</color>
+    <color name="app_outline">#2E3038</color>
+    <color name="app_error">#FFB4AB</color>
+
+    <!-- Material 3 theme tokens - Dark mode overrides -->
+    <color name="md_primary">#AAC7FF</color>
+    <color name="md_on_primary">#002F65</color>
+    <color name="md_primary_container">#00458E</color>
+    <color name="md_on_primary_container">#D6E3FF</color>
+    <color name="md_secondary">#BBC7DB</color>
+    <color name="md_on_secondary">#263141</color>
+    <color name="md_secondary_container">#3D4758</color>
+    <color name="md_on_secondary_container">#D7E3F7</color>
+    <color name="md_tertiary">#D6BAE4</color>
+    <color name="md_on_tertiary">#3B2947</color>
+    <color name="md_error">#FFB4AB</color>
+    <color name="md_on_error">#690005</color>
+    <color name="md_background">#111318</color>
+    <color name="md_on_background">#E2E2E9</color>
+    <color name="md_surface">#1B1B21</color>
+    <color name="md_on_surface">#E2E2E9</color>
+    <color name="md_surface_variant">#44474F</color>
+    <color name="md_on_surface_variant">#C4C6D0</color>
+    <color name="md_outline">#2E3038</color>
+</resources>

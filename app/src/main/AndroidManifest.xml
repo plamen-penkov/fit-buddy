@@ -24,20 +24,20 @@
         <activity
             android:name="com.example.fit_buddy.activities.DiaryActivity"
             android:exported="false"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+            android:theme="@style/Theme.FitBuddy"/>
         <activity
             android:name="com.example.fit_buddy.activities.StatsActivity"
             android:exported="false"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+            android:theme="@style/Theme.FitBuddy"/>
 
         <activity
             android:name="com.example.fit_buddy.activities.MoreActivity"
             android:exported="false"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+            android:theme="@style/Theme.FitBuddy"/>
         <activity
             android:name="com.example.fit_buddy.activities.SettingsActivity"
             android:exported="false"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+            android:theme="@style/Theme.FitBuddy"/>
     </application>
 
 </manifest>

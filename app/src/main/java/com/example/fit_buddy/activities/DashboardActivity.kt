@@ -3,7 +3,6 @@ package com.example.fit_buddy.activities
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
@@ -18,12 +17,14 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
-import androidx.core.graphics.toColorInt
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.example.fit_buddy.R
 import com.example.fit_buddy.utils.DataManager
 import com.example.fit_buddy.utils.setupBottomNavigation
+import java.util.concurrent.Executors
 
 class DashboardActivity : AppCompatActivity() {
 
@@ -33,12 +34,12 @@ class DashboardActivity : AppCompatActivity() {
     private lateinit var baseGoalText: TextView
     private lateinit var consumedText: TextView
 
-    private val colorPrimary = "#0066EE".toColorInt()
-    private val colorBackground = "#F5F7FA".toColorInt()
-    private val colorCard = Color.WHITE
-    private val colorTextPrimary = "#111827".toColorInt()
-    private val colorTextSecondary = "#6B7280".toColorInt()
-    private val colorDivider = "#E5E7EB".toColorInt()
+    private val colorPrimary by lazy { getColor(R.color.app_primary) }
+    private val colorBackground by lazy { getColor(R.color.app_background) }
+    private val colorCard by lazy { getColor(R.color.app_surface) }
+    private val colorTextPrimary by lazy { getColor(R.color.app_on_surface) }
+    private val colorTextSecondary by lazy { getColor(R.color.app_on_surface_variant) }
+    private val colorDivider by lazy { getColor(R.color.app_outline) }
 
     private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()
 
@@ -46,8 +47,26 @@ class DashboardActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        DataManager.loadData(this)
 
+        // Apply saved theme
+        Executors.newSingleThreadExecutor().execute {
+            DataManager.loadData(this)
+            runOnUiThread {
+                applyTheme()
+                buildUI()
+            }
+        }
+    }
+
+    private fun applyTheme() {
+        when (DataManager.themeMode) {
+            1 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            2 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        }
+    }
+
+    private fun buildUI() {
         val root = ConstraintLayout(this).apply {
             id = View.generateViewId()
             layoutParams = ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
@@ -57,7 +76,7 @@ class DashboardActivity : AppCompatActivity() {
         val scrollView = ScrollView(this).apply {
             id = View.generateViewId()
             isScrollbarFadingEnabled = false
-            layoutParams = ConstraintLayout.LayoutParams(MATCH_PARENT, 0) // Height 0 means "match constraints"
+            layoutParams = ConstraintLayout.LayoutParams(MATCH_PARENT, 0)
         }
 
         dashboardContent = LinearLayout(this).apply {
@@ -234,8 +253,10 @@ class DashboardActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        DataManager.loadData(this)
-        updateProgressUI()
+        Executors.newSingleThreadExecutor().execute {
+            DataManager.loadData(this)
+            runOnUiThread { updateProgressUI() }
+        }
     }
 
     @SuppressLint("SetTextI18n")

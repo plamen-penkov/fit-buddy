@@ -1,8 +1,8 @@
 package com.example.fit_buddy.activities
 
 import android.annotation.SuppressLint
+import android.app.DatePickerDialog
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -15,19 +15,28 @@ import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.toColorInt
+import com.example.fit_buddy.R
+import com.example.fit_buddy.utils.DataManager
 import com.example.fit_buddy.utils.setupBottomNavigation
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.concurrent.Executors
 
 class MoreActivity : AppCompatActivity() {
 
-    private val colorPrimary = "#0066EE".toColorInt()
-    private val colorBackground = "#F5F7FA".toColorInt()
-    private val colorCard = Color.WHITE
-    private val colorTextPrimary = "#111827".toColorInt()
-    private val colorTextSecondary = "#6B7280".toColorInt()
-    private val colorDivider = "#E5E7EB".toColorInt()
+    private val colorPrimary by lazy { getColor(R.color.app_primary) }
+    private val colorBackground by lazy { getColor(R.color.app_background) }
+    private val colorCard by lazy { getColor(R.color.app_surface) }
+    private val colorTextPrimary by lazy { getColor(R.color.app_on_surface) }
+    private val colorTextSecondary by lazy { getColor(R.color.app_on_surface_variant) }
+    private val colorDivider by lazy { getColor(R.color.app_outline) }
+
+    private val executor = Executors.newSingleThreadExecutor()
 
     private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()
 
@@ -35,6 +44,13 @@ class MoreActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        executor.execute {
+            DataManager.loadData(this)
+            runOnUiThread { buildUI() }
+        }
+    }
+
+    private fun buildUI() {
         val root = RelativeLayout(this).apply {
             setBackgroundColor(colorBackground)
         }
@@ -71,6 +87,16 @@ class MoreActivity : AppCompatActivity() {
         menuContainer.addView(createDivider())
         menuContainer.addView(createMenuOption(android.R.drawable.ic_menu_preferences, "Settings (Goals & Macros)") {
             startActivity(Intent(this@MoreActivity, SettingsActivity::class.java))
+        })
+
+        menuContainer.addView(createDivider())
+        menuContainer.addView(createMenuOption(android.R.drawable.ic_menu_send, "Export & Share Report") {
+            showShareDatePicker()
+        })
+
+        menuContainer.addView(createDivider())
+        menuContainer.addView(createMenuOption(android.R.drawable.ic_menu_view, "Theme") {
+            showThemeDialog()
         })
 
         menuContainer.addView(createDivider())
@@ -152,5 +178,95 @@ class MoreActivity : AppCompatActivity() {
             }
             setBackgroundColor(colorDivider)
         }
+    }
+
+    // ─── Theme Toggle ────────────────────────────────────────────────────
+
+    private fun showThemeDialog() {
+        val options = arrayOf("System Default", "Light", "Dark")
+        val currentSelection = when (DataManager.themeMode) {
+            1 -> 1
+            2 -> 2
+            else -> 0
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Choose Theme")
+            .setSingleChoiceItems(options, currentSelection) { dialog, which ->
+                val mode = when (which) {
+                    1 -> 1   // Light
+                    2 -> 2   // Dark
+                    else -> -1 // System
+                }
+                DataManager.themeMode = mode
+                executor.execute {
+                    DataManager.saveSettings(this)
+                }
+                when (mode) {
+                    1 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+                    2 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+                    else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // ─── Share Intent ────────────────────────────────────────────────────
+
+    private fun showShareDatePicker() {
+        val calendar = Calendar.getInstance()
+        DatePickerDialog(
+            this,
+            { _, year, month, dayOfMonth ->
+                val cal = Calendar.getInstance()
+                cal.set(year, month, dayOfMonth)
+                val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+                shareReportForDate(dateStr, cal)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun shareReportForDate(dateStr: String, cal: Calendar) {
+        val foods = DataManager.consumedFoods.filter { it.date == dateStr }
+        val displayDate = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(cal.time)
+
+        val totalCals = foods.sumOf { it.calories }
+        val totalP = foods.sumOf { it.protein }
+        val totalC = foods.sumOf { it.carbs }
+        val totalF = foods.sumOf { it.fats }
+
+        val sb = StringBuilder()
+        sb.appendLine("📊 FitBuddy Report — $displayDate")
+        sb.appendLine("🔥 Calories: $totalCals / ${DataManager.dailyGoal} kcal")
+        sb.appendLine("💪 Protein: ${totalP}g | 🌾 Carbs: ${totalC}g | 🧈 Fats: ${totalF}g")
+        sb.appendLine()
+
+        val mealTypes = listOf("Breakfast", "Lunch", "Dinner", "Snacks")
+        val mealEmojis = mapOf("Breakfast" to "🍳", "Lunch" to "🥗", "Dinner" to "🍝", "Snacks" to "🍿")
+
+        mealTypes.forEach { meal ->
+            val mealFoods = foods.filter { it.mealType == meal }
+            val mealCals = mealFoods.sumOf { it.calories }
+            sb.appendLine("${mealEmojis[meal]} $meal: $mealCals kcal")
+            mealFoods.forEach { food ->
+                sb.appendLine("   • ${food.name} — ${food.calories} kcal")
+            }
+        }
+
+        sb.appendLine()
+        sb.appendLine("Tracked with FitBuddy 💪")
+
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "FitBuddy Report — $displayDate")
+            putExtra(Intent.EXTRA_TEXT, sb.toString())
+        }
+        startActivity(Intent.createChooser(shareIntent, "Share Report via"))
     }
 }

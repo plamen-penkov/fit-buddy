@@ -1,7 +1,6 @@
 package com.example.fit_buddy.activities
 
 import android.annotation.SuppressLint
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -18,23 +17,27 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatButton
-import androidx.core.graphics.toColorInt
+import com.example.fit_buddy.R
 import com.example.fit_buddy.utils.DataManager
+import java.util.concurrent.Executors
 
 class SettingsActivity : AppCompatActivity() {
 
-    private val colorPrimary = "#0066EE".toColorInt()
-    private val colorBackground = "#F5F7FA".toColorInt()
-    private val colorCard = Color.WHITE
-    private val colorTextPrimary = "#111827".toColorInt()
-    private val colorTextSecondary = "#6B7280".toColorInt()
-    private val colorDivider = "#E5E7EB".toColorInt()
-    private val colorInputBg = "#F9FAFB".toColorInt()
+    private val colorPrimary by lazy { getColor(R.color.app_primary) }
+    private val colorOnPrimary by lazy { getColor(R.color.app_on_primary) }
+    private val colorBackground by lazy { getColor(R.color.app_background) }
+    private val colorCard by lazy { getColor(R.color.app_surface) }
+    private val colorTextPrimary by lazy { getColor(R.color.app_on_surface) }
+    private val colorTextSecondary by lazy { getColor(R.color.app_on_surface_variant) }
+    private val colorDivider by lazy { getColor(R.color.app_outline) }
+    private val colorInputBg by lazy { getColor(R.color.app_surface_variant) }
 
     private lateinit var goalInput: EditText
     private lateinit var proteinInput: EditText
     private lateinit var carbsInput: EditText
     private lateinit var fatsInput: EditText
+
+    private val executor = Executors.newSingleThreadExecutor()
 
     private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()
 
@@ -42,8 +45,13 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        DataManager.loadData(this)
+        executor.execute {
+            DataManager.loadData(this)
+            runOnUiThread { buildUI() }
+        }
+    }
 
+    private fun buildUI() {
         val root = RelativeLayout(this).apply {
             setBackgroundColor(colorBackground)
         }
@@ -179,7 +187,7 @@ class SettingsActivity : AppCompatActivity() {
             text = "Save Settings"
             textSize = 16f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(Color.WHITE)
+            setTextColor(colorOnPrimary)
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                 topMargin = 10.dp()
             }
@@ -244,9 +252,13 @@ class SettingsActivity : AppCompatActivity() {
         DataManager.proteinPct = p
         DataManager.carbsPct = c
         DataManager.fatsPct = f
-        DataManager.saveData(this)
 
-        Toast.makeText(this, "Settings Saved!", Toast.LENGTH_SHORT).show()
-        finish()
+        executor.execute {
+            DataManager.saveSettings(this)
+            runOnUiThread {
+                Toast.makeText(this, "Settings Saved!", Toast.LENGTH_SHORT).show()
+                finish()
+            }
+        }
     }
 }

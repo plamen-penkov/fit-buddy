@@ -2,41 +2,33 @@ package com.example.fit_buddy.utils
 
 import android.content.Context
 import android.util.Log
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.example.fit_buddy.data.AppDatabase
+import com.example.fit_buddy.data.FoodItemEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-data class FoodItem(
-    val name: String,
-    val protein: Int,
-    val carbs: Int,
-    val fats: Int,
-    val date: String,
-    val mealType: String
-) {
-    // Automatically calculate the calories based on the macros
-    val calories: Int
-        get() = (protein * 4) + (carbs * 4) + (fats * 9)
-}
-
 object DataManager {
     private const val TAG = "DataManager"
     private const val PREFS_NAME =  "fitness_prefs"
-    private const val FOODS_KEY =  "saved_foods"
     private const val GOAL_KEY =  "daily_goal"
 
     private const val PROTEIN_PCT_KEY = "protein_pct"
     private const val CARBS_PCT_KEY = "carbs_pct"
     private const val FATS_PCT_KEY = "fats_pct"
+    private const val THEME_KEY = "theme_mode"
 
     var dailyGoal: Int = 2000
     var proteinPct: Int = 30
-    var carbsPct = 40
-    var fatsPct = 30
-    var consumedFoods = mutableListOf<FoodItem>()
+    var carbsPct: Int = 40
+    var fatsPct: Int = 30
+    var themeMode: Int = -1  // -1 = system default, 1 = light, 2 = dark
+
+    // In-memory cache loaded from Room
+    var consumedFoods = mutableListOf<FoodItemEntity>()
         private set
+
+    private fun getDao(context: Context) = AppDatabase.getInstance(context).foodDao()
 
     fun getCurrentDate(): String {
         val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -49,54 +41,72 @@ object DataManager {
         proteinPct = prefs.getInt(PROTEIN_PCT_KEY, 30)
         carbsPct = prefs.getInt(CARBS_PCT_KEY, 40)
         fatsPct = prefs.getInt(FATS_PCT_KEY, 30)
+        themeMode = prefs.getInt(THEME_KEY, -1)
 
-        val foodsJson = prefs.getString(FOODS_KEY, null)
-        if (!foodsJson.isNullOrEmpty()) {
-            try {
-                val type = object : TypeToken<MutableList<FoodItem>>() {}.type
-                val parsedFoods: MutableList<FoodItem>? = Gson().fromJson(foodsJson, type)
-                if (parsedFoods != null) {
-                    consumedFoods = parsedFoods
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error parsing food data from SharedPreferences", e)
-                consumedFoods = mutableListOf()
-            }
+        // Load all foods from Room database
+        try {
+            val dao = getDao(context)
+            consumedFoods = dao.getAll().toMutableList()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading food data from Room", e)
+            consumedFoods = mutableListOf()
         }
     }
 
-    fun saveData(context: Context) {
+    fun saveSettings(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val editor = prefs.edit()
-
         editor.putInt(GOAL_KEY, dailyGoal)
         editor.putInt(PROTEIN_PCT_KEY, proteinPct)
         editor.putInt(CARBS_PCT_KEY, carbsPct)
         editor.putInt(FATS_PCT_KEY, fatsPct)
-
-        try {
-            val foodsJson = Gson().toJson(consumedFoods)
-            editor.putString(FOODS_KEY, foodsJson)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error serializing food data", e)
-        }
-
+        editor.putInt(THEME_KEY, themeMode)
         editor.apply()
     }
 
-    fun addFood(context: Context, foodItem: FoodItem) {
-        consumedFoods.add(foodItem)
-        saveData(context)
+    fun addFood(context: Context, food: FoodItemEntity): Long {
+        return try {
+            val dao = getDao(context)
+            val id = dao.insert(food)
+            val insertedFood = food.copy(id = id)
+            consumedFoods.add(0, insertedFood)
+            id
+        } catch (e: Exception) {
+            Log.e(TAG, "Error inserting food into Room", e)
+            -1
+        }
     }
 
-    fun removeFood(context: Context, foodItem: FoodItem) {
-        consumedFoods.remove(foodItem)
-        saveData(context)
+    fun updateFood(context: Context, food: FoodItemEntity) {
+        try {
+            val dao = getDao(context)
+            dao.update(food)
+            val index = consumedFoods.indexOfFirst { it.id == food.id }
+            if (index >= 0) {
+                consumedFoods[index] = food
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating food in Room", e)
+        }
     }
 
-    fun getTodayFoods(): List<FoodItem> {
+    fun removeFood(context: Context, food: FoodItemEntity) {
+        try {
+            val dao = getDao(context)
+            dao.delete(food)
+            consumedFoods.removeAll { it.id == food.id }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting food from Room", e)
+        }
+    }
+
+    fun getFoodsForDate(date: String): List<FoodItemEntity> {
+        return consumedFoods.filter { it.date == date }
+    }
+
+    fun getTodayFoods(): List<FoodItemEntity> {
         val today = getCurrentDate()
-        return consumedFoods.filter { it.date == today }
+        return getFoodsForDate(today)
     }
 
     fun getTotalConsumedForToday(): Int {

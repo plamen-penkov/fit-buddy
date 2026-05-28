@@ -19,23 +19,27 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.toColorInt
+import com.example.fit_buddy.R
 import com.example.fit_buddy.utils.DataManager
 import com.example.fit_buddy.utils.setupBottomNavigation
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import java.util.concurrent.Executors
 
 class StatsActivity : AppCompatActivity() {
 
-    private val colorBackground = "#F5F7FA".toColorInt()
-    private val colorCard = Color.WHITE
-    private val colorTextPrimary = "#111827".toColorInt()
-    private val colorTextSecondary = "#6B7280".toColorInt()
-    private val colorDivider = "#E5E7EB".toColorInt()
+    private val colorBackground by lazy { getColor(R.color.app_background) }
+    private val colorCard by lazy { getColor(R.color.app_surface) }
+    private val colorTextPrimary by lazy { getColor(R.color.app_on_surface) }
+    private val colorTextSecondary by lazy { getColor(R.color.app_on_surface_variant) }
+    private val colorDivider by lazy { getColor(R.color.app_outline) }
 
     private lateinit var chartView: BarChartView
     private lateinit var chartTitle: TextView
     private lateinit var toggleContainer: LinearLayout
+
+    private val executor = Executors.newSingleThreadExecutor()
 
     private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()
 
@@ -52,7 +56,6 @@ class StatsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        DataManager.loadData(this)
 
         val root = RelativeLayout(this).apply {
             setBackgroundColor(colorBackground)
@@ -82,7 +85,10 @@ class StatsActivity : AppCompatActivity() {
         setupBottomNavigation(this, root, 3)
         setContentView(root)
 
-        updateChartData()
+        executor.execute {
+            DataManager.loadData(this)
+            runOnUiThread { updateChartData() }
+        }
     }
 
     @SuppressLint("SetTextI18n")

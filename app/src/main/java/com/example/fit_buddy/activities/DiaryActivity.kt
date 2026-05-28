@@ -1,11 +1,12 @@
 package com.example.fit_buddy.activities
 
 import android.annotation.SuppressLint
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
@@ -23,20 +24,23 @@ import android.widget.TableRow
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.graphics.toColorInt
 import androidx.core.view.GestureDetectorCompat
+import com.example.fit_buddy.R
+import com.example.fit_buddy.data.FoodItemEntity
 import com.example.fit_buddy.utils.DataManager
-import com.example.fit_buddy.utils.FoodItem
 import com.example.fit_buddy.utils.setupBottomNavigation
+import com.google.android.material.snackbar.Snackbar
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
 import kotlin.math.abs
 
 @Suppress("DEPRECATION")
 class DiaryActivity : AppCompatActivity() {
 
+    private lateinit var rootLayout: RelativeLayout
     private lateinit var diaryContent: LinearLayout
     private val mealCategories = listOf("Breakfast", "Lunch", "Dinner", "Snacks")
     private var displayedDateString: String = ""
@@ -46,24 +50,26 @@ class DiaryActivity : AppCompatActivity() {
     private lateinit var gestureDetector: GestureDetectorCompat
     private var isAnimating = false
 
-    private val colorPrimary = "#0066EE".toColorInt()
-    private val colorBackground = "#F5F7FA".toColorInt()
-    private val colorCard = Color.WHITE
-    private val colorTextPrimary = "#111827".toColorInt()
-    private val colorTextSecondary = "#6B7280".toColorInt()
-    private val colorDivider = "#E5E7EB".toColorInt()
-    private val colorFoodRowBg = "#F9FAFB".toColorInt()
+    private val colorPrimary by lazy { getColor(R.color.app_primary) }
+    private val colorBackground by lazy { getColor(R.color.app_background) }
+    private val colorCard by lazy { getColor(R.color.app_surface) }
+    private val colorTextPrimary by lazy { getColor(R.color.app_on_surface) }
+    private val colorTextSecondary by lazy { getColor(R.color.app_on_surface_variant) }
+    private val colorDivider by lazy { getColor(R.color.app_outline) }
+    private val colorFoodRowBg by lazy { getColor(R.color.app_surface_variant) }
+    private val colorError by lazy { getColor(R.color.app_error) }
+
+    private val executor = Executors.newSingleThreadExecutor()
 
     private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        DataManager.loadData(this)
 
         displayedDateString = DataManager.getCurrentDate()
         gestureDetector = GestureDetectorCompat(this, SwipeGestureListener())
 
-        val root = RelativeLayout(this).apply {
+        rootLayout = RelativeLayout(this).apply {
             setBackgroundColor(colorBackground)
         }
 
@@ -81,11 +87,15 @@ class DiaryActivity : AppCompatActivity() {
         val scrollParams = RelativeLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT).apply {
             bottomMargin = 80.dp()
         }
-        root.addView(scrollView, scrollParams)
+        rootLayout.addView(scrollView, scrollParams)
 
-        refreshDiary()
-        setupBottomNavigation(this, root, 2)
-        setContentView(root)
+        executor.execute {
+            DataManager.loadData(this)
+            runOnUiThread { refreshDiary() }
+        }
+
+        setupBottomNavigation(this, rootLayout, 2)
+        setContentView(rootLayout)
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -193,7 +203,7 @@ class DiaryActivity : AppCompatActivity() {
     }
 
     @SuppressLint("SetTextI18n")
-    private fun createSummaryCard(foods: List<FoodItem>): View {
+    private fun createSummaryCard(foods: List<FoodItemEntity>): View {
         val totalCals = foods.sumOf { it.calories }
         val totalP = foods.sumOf { it.protein }
         val totalC = foods.sumOf { it.carbs }
@@ -224,7 +234,6 @@ class DiaryActivity : AppCompatActivity() {
             setPadding(0, 5.dp(), 0, 15.dp())
         })
 
-        // IMPLEMENTING TABLE LAYOUT HERE
         val table = TableLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             isStretchAllColumns = true
@@ -259,7 +268,7 @@ class DiaryActivity : AppCompatActivity() {
     }
 
     @SuppressLint("SetTextI18n")
-    private fun createMealSection(mealName: String, foods: List<FoodItem>): View {
+    private fun createMealSection(mealName: String, foods: List<FoodItemEntity>): View {
         val section = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(20.dp(), 20.dp(), 20.dp(), 20.dp())
@@ -301,7 +310,7 @@ class DiaryActivity : AppCompatActivity() {
                 textSize = 15f
             })
         } else {
-            foods.forEach { section.addView(createFoodRow(it)) }
+            foods.forEach { section.addView(createSwipeableFoodRow(it, section)) }
         }
 
         section.addView(TextView(this).apply {
@@ -316,49 +325,153 @@ class DiaryActivity : AppCompatActivity() {
         return section
     }
 
-    @SuppressLint("SetTextI18n")
-    private fun createFoodRow(food: FoodItem): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+    @SuppressLint("SetTextI18n", "ClickableViewAccessibility")
+    private fun createSwipeableFoodRow(food: FoodItemEntity, parentSection: LinearLayout): View {
+        val rowHeight = 80.dp()
+
+        // Container that holds both background and foreground
+        val container = RelativeLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                 setMargins(0, 8.dp(), 0, 8.dp())
             }
+            clipChildren = false
+        }
+
+        // Red delete background
+        val deleteBackground = LinearLayout(this).apply {
+            layoutParams = RelativeLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            background = createRoundedBackground(colorError, 10.dp().toFloat())
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 20.dp(), 0)
+
+            addView(TextView(this@DiaryActivity).apply {
+                text = "🗑 Delete"
+                textSize = 14f
+                setTextColor(0xFFFFFFFF.toInt())
+                setTypeface(null, Typeface.BOLD)
+            })
+        }
+        container.addView(deleteBackground)
+
+        // Foreground: the actual food row content
+        val foreground = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = RelativeLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             background = createRoundedBackground(colorFoodRowBg, 10.dp().toFloat())
             setPadding(16.dp(), 16.dp(), 16.dp(), 16.dp())
             gravity = Gravity.CENTER_VERTICAL
-            setOnClickListener { showDeleteDialog(food) }
+            // Tap to edit
+            setOnClickListener { showEditFoodDialog(food) }
+        }
 
-            val textLayout = LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-                addView(TextView(context).apply {
-                    text = food.name
-                    textSize = 16f
-                    setTextColor(colorTextPrimary)
-                    setTypeface(null, Typeface.BOLD)
-                })
-                addView(TextView(context).apply {
-                    text = "P: ${food.protein}g • C: ${food.carbs}g • F: ${food.fats}g"
-                    textSize = 13f
-                    setTextColor(colorTextSecondary)
-                    setPadding(0, 4.dp(), 0, 0)
-                })
-            }
-            addView(textLayout)
-
-            addView(LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.END
-                addView(TextView(context).apply {
-                    text = "${food.calories}"
-                    textSize = 18f
-                    setTextColor(colorPrimary)
-                    setTypeface(null, Typeface.BOLD)
-                })
-                addView(TextView(context).apply {
-                    text = "kcal"; textSize = 12f; setTextColor(colorTextSecondary)
-                })
+        val textLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+            addView(TextView(this@DiaryActivity).apply {
+                text = food.name
+                textSize = 16f
+                setTextColor(colorTextPrimary)
+                setTypeface(null, Typeface.BOLD)
             })
+            addView(TextView(this@DiaryActivity).apply {
+                text = "P: ${food.protein}g • C: ${food.carbs}g • F: ${food.fats}g"
+                textSize = 13f
+                setTextColor(colorTextSecondary)
+                setPadding(0, 2.dp(), 0, 0)
+            })
+            addView(TextView(this@DiaryActivity).apply {
+                val servingsText = if (food.servings == food.servings.toInt().toDouble())
+                    "${food.servings.toInt()} × 100g"
+                else
+                    String.format(Locale.getDefault(), "%.1f × 100g", food.servings)
+                text = servingsText
+                textSize = 11f
+                setTextColor(colorTextSecondary)
+                setPadding(0, 2.dp(), 0, 0)
+            })
+        }
+        foreground.addView(textLayout)
+
+        foreground.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.END
+            addView(TextView(this@DiaryActivity).apply {
+                text = "${food.calories}"
+                textSize = 18f
+                setTextColor(colorPrimary)
+                setTypeface(null, Typeface.BOLD)
+            })
+            addView(TextView(this@DiaryActivity).apply {
+                text = "kcal"; textSize = 12f; setTextColor(colorTextSecondary)
+            })
+        })
+
+        container.addView(foreground)
+
+        // Swipe-to-delete gesture
+        var startX = 0f
+        val swipeThreshold = 150.dp().toFloat()
+
+        foreground.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = event.rawX
+                    false // Let click listener still work
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val deltaX = event.rawX - startX
+                    if (deltaX < 0) { // Only allow left swipe
+                        foreground.translationX = deltaX
+                        // If swiped enough, consume the event
+                        if (abs(deltaX) > 20.dp()) {
+                            v.parent.requestDisallowInterceptTouchEvent(true)
+                        }
+                    }
+                    abs(deltaX) > 20.dp()
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    val deltaX = event.rawX - startX
+                    if (deltaX < -swipeThreshold) {
+                        // Swiped far enough — delete with animation
+                        foreground.animate()
+                            .translationX(-foreground.width.toFloat())
+                            .alpha(0f)
+                            .setDuration(200)
+                            .withEndAction {
+                                performDelete(food)
+                            }
+                            .start()
+                    } else {
+                        // Snap back
+                        foreground.animate()
+                            .translationX(0f)
+                            .setDuration(150)
+                            .start()
+                    }
+                    v.parent.requestDisallowInterceptTouchEvent(false)
+                    abs(deltaX) > 20.dp()
+                }
+                else -> false
+            }
+        }
+
+        return container
+    }
+
+    private fun performDelete(food: FoodItemEntity) {
+        executor.execute {
+            DataManager.removeFood(this, food)
+            runOnUiThread {
+                refreshDiary()
+                Snackbar.make(rootLayout, "${food.name} deleted", Snackbar.LENGTH_LONG)
+                    .setAction("Undo") {
+                        executor.execute {
+                            DataManager.addFood(this, food)
+                            runOnUiThread { refreshDiary() }
+                        }
+                    }
+                    .show()
+            }
         }
     }
 
@@ -383,34 +496,49 @@ class DiaryActivity : AppCompatActivity() {
                 cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
     }
 
-    private fun showDeleteDialog(food: FoodItem) {
-        AlertDialog.Builder(this)
-            .setTitle("Delete Entry")
-            .setMessage("Remove ${food.name}?")
-            .setPositiveButton("Delete") { _, _ ->
-                DataManager.removeFood(this, food)
-                refreshDiary()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+    @SuppressLint("SetTextI18n")
+    private fun showAddFoodDialog(preselectedMeal: String) {
+        showFoodFormDialog(
+            title = "Log Food",
+            existingFood = null,
+            preselectedMeal = preselectedMeal
+        )
     }
 
     @SuppressLint("SetTextI18n")
-    private fun showAddFoodDialog(preselectedMeal: String) {
+    private fun showEditFoodDialog(food: FoodItemEntity) {
+        showFoodFormDialog(
+            title = "Edit Food",
+            existingFood = food,
+            preselectedMeal = food.mealType
+        )
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun showFoodFormDialog(title: String, existingFood: FoodItemEntity?, preselectedMeal: String) {
         val dialogLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(30.dp(), 30.dp(), 30.dp(), 10.dp())
         }
 
         dialogLayout.addView(TextView(this).apply {
-            text = "Log Food"; textSize = 22f; setTypeface(null, Typeface.BOLD)
+            text = title; textSize = 22f; setTypeface(null, Typeface.BOLD)
             setTextColor(colorTextPrimary); setPadding(0, 0, 0, 15.dp())
         })
 
-        fun createInput(hintText: String, isNumber: Boolean = false): EditText {
+        // Hint: values are per 100g
+        dialogLayout.addView(TextView(this).apply {
+            text = "Enter macros per 100g of food"
+            textSize = 13f
+            setTextColor(colorTextSecondary)
+            setPadding(0, 0, 0, 10.dp())
+        })
+
+        fun createInput(hintText: String, isNumber: Boolean = false, isDecimal: Boolean = false): EditText {
             return EditText(this@DiaryActivity).apply {
                 hint = hintText
                 if (isNumber) inputType = InputType.TYPE_CLASS_NUMBER
+                if (isDecimal) inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
                 layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                     setMargins(0, 8.dp(), 0, 8.dp())
                 }
@@ -423,11 +551,61 @@ class DiaryActivity : AppCompatActivity() {
         }
 
         val nameInput = createInput("Food Name")
-        val proteinInput = createInput("Protein (g)", true)
-        val carbsInput = createInput("Carbs (g)", true)
-        val fatsInput = createInput("Fats (g)", true)
+        val proteinInput = createInput("Protein per 100g (g)", true)
+        val carbsInput = createInput("Carbs per 100g (g)", true)
+        val fatsInput = createInput("Fats per 100g (g)", true)
+        val servingsInput = createInput("Servings (× 100g)", isDecimal = true)
 
-        dialogLayout.addAllViews(nameInput, proteinInput, carbsInput, fatsInput)
+        // Pre-fill for edit
+        if (existingFood != null) {
+            nameInput.setText(existingFood.name)
+            proteinInput.setText(existingFood.proteinPer100g.toString())
+            carbsInput.setText(existingFood.carbsPer100g.toString())
+            fatsInput.setText(existingFood.fatsPer100g.toString())
+            servingsInput.setText(
+                if (existingFood.servings == existingFood.servings.toInt().toDouble())
+                    existingFood.servings.toInt().toString()
+                else
+                    existingFood.servings.toString()
+            )
+        } else {
+            servingsInput.setText("1")
+        }
+
+        dialogLayout.addAllViews(nameInput, proteinInput, carbsInput, fatsInput, servingsInput)
+
+        // Live preview of calculated totals
+        val previewText = TextView(this).apply {
+            text = "Total: 0 kcal (P: 0g • C: 0g • F: 0g)"
+            textSize = 13f
+            setTextColor(colorPrimary)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 8.dp(), 0, 12.dp())
+        }
+        dialogLayout.addView(previewText)
+
+        // Update preview on any input change
+        val watcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val p = proteinInput.text.toString().toIntOrNull() ?: 0
+                val c = carbsInput.text.toString().toIntOrNull() ?: 0
+                val f = fatsInput.text.toString().toIntOrNull() ?: 0
+                val srv = servingsInput.text.toString().toDoubleOrNull() ?: 1.0
+                val totalP = (p * srv).toInt()
+                val totalC = (c * srv).toInt()
+                val totalF = (f * srv).toInt()
+                val totalCal = (totalP * 4) + (totalC * 4) + (totalF * 9)
+                previewText.text = "Total: $totalCal kcal (P: ${totalP}g • C: ${totalC}g • F: ${totalF}g)"
+            }
+        }
+        proteinInput.addTextChangedListener(watcher)
+        carbsInput.addTextChangedListener(watcher)
+        fatsInput.addTextChangedListener(watcher)
+        servingsInput.addTextChangedListener(watcher)
+        // Trigger initial preview
+        watcher.afterTextChanged(null)
 
         val mealDropdown = Spinner(this).apply {
             adapter = ArrayAdapter(this@DiaryActivity, android.R.layout.simple_spinner_dropdown_item, mealCategories)
@@ -437,16 +615,41 @@ class DiaryActivity : AppCompatActivity() {
         }
         dialogLayout.addView(mealDropdown)
 
+        val buttonText = if (existingFood != null) "Update" else "Save"
+
         AlertDialog.Builder(this).setView(dialogLayout)
-            .setPositiveButton("Save") { _, _ ->
+            .setPositiveButton(buttonText) { _, _ ->
                 val name = nameInput.text.toString()
                 if (name.isNotEmpty()) {
-                    DataManager.addFood(this, FoodItem(name,
-                        proteinInput.text.toString().toIntOrNull() ?: 0,
-                        carbsInput.text.toString().toIntOrNull() ?: 0,
-                        fatsInput.text.toString().toIntOrNull() ?: 0,
-                        displayedDateString, mealDropdown.selectedItem.toString()))
-                    refreshDiary()
+                    val p100 = proteinInput.text.toString().toIntOrNull() ?: 0
+                    val c100 = carbsInput.text.toString().toIntOrNull() ?: 0
+                    val f100 = fatsInput.text.toString().toIntOrNull() ?: 0
+                    val srv = servingsInput.text.toString().toDoubleOrNull() ?: 1.0
+
+                    executor.execute {
+                        if (existingFood != null) {
+                            val updated = existingFood.copy(
+                                name = name,
+                                proteinPer100g = p100,
+                                carbsPer100g = c100,
+                                fatsPer100g = f100,
+                                servings = srv,
+                                mealType = mealDropdown.selectedItem.toString()
+                            )
+                            DataManager.updateFood(this, updated)
+                        } else {
+                            DataManager.addFood(this, FoodItemEntity(
+                                name = name,
+                                proteinPer100g = p100,
+                                carbsPer100g = c100,
+                                fatsPer100g = f100,
+                                servings = srv,
+                                date = displayedDateString,
+                                mealType = mealDropdown.selectedItem.toString()
+                            ))
+                        }
+                        runOnUiThread { refreshDiary() }
+                    }
                 }
             }
             .setNegativeButton("Cancel", null).show()
