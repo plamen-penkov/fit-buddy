@@ -231,7 +231,7 @@ class StatsActivity : AppCompatActivity() {
         private val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = colorTextPrimary
             textSize = 11.dp().toFloat()
-            setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD))
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
         }
 
